@@ -312,14 +312,14 @@ var bindType = map[Lang]func(kind abi.Type, structs map[string]*tmplStruct) stri
 func bindBasicTypeGo(kind abi.Type) string {
 	switch kind.T {
 	case abi.AddressTy:
-		return "common.Address"
+		return "types.EvmAddress"
 	case abi.IntTy, abi.UintTy:
 		parts := regexp.MustCompile(`(u)?int([0-9]*)`).FindStringSubmatch(kind.String())
 		switch parts[2] {
 		case "8", "16", "32", "64":
 			return fmt.Sprintf("%sint%s", parts[1], parts[2])
 		}
-		return "*big.Int"
+		return "*types.BigInt"
 	case abi.FixedBytesTy:
 		return fmt.Sprintf("[%d]byte", kind.Size)
 	case abi.BytesTy:
@@ -366,7 +366,7 @@ func bindTopicTypeGo(kind abi.Type, structs map[string]*tmplStruct) string {
 	// We only convert strings and bytes to hash, still need to deal with
 	// array(both fixed-size and dynamic-size) and struct.
 	if bound == "string" || bound == "[]byte" {
-		bound = "common.Hash"
+		bound = "types.Bytes320x"
 	}
 	return bound
 }
