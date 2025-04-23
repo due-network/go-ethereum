@@ -99,6 +99,30 @@ var (
 		    CallStatic: {{.Type}}StaticCaller{contract: contract},
       }, nil
 		}
+
+	func (_{{$contract.Type}} *{{$contract.Type}}Populator) Deploy({{range $i, $_ := .Constructor.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) ([]byte, error) {
+		{{range $pattern, $name := .Libraries}}
+		{{decapitalise $name}}Addr, _, _, _ := Deploy{{capitalise $name}}(auth, backend)
+		{{$contract.Type}}Bin = strings.ReplaceAll({{$contract.Type}}Bin, "__${{$pattern}}$__", {{decapitalise $name}}Addr.String()[2:])
+		{{end}}
+		bytecode, err := hex.DecodeString({{.Type}}Bin[2:])
+
+		if err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
+
+		input, err := _{{$contract.Type}}.Constructor({{range $i, $_ := .Constructor.Inputs}}{{if ne $i 0}},{{end}} {{.Name}}{{end}})
+
+		if err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
+
+		return append(bytecode, input...), nil
+	}
+
+	func (_{{$contract.Type}} *{{$contract.Type}}Populator) Constructor({{range $i, $_ := .Constructor.Inputs}}{{if ne $i 0}},{{end}} {{.Name}} {{bindtype .Type $structs}} {{end}}) ([]byte, error) {
+		return _{{$contract.Type}}.abi.Pack(""{{range .Constructor.Inputs}}, due_abi.ToABIForm({{.Name}}){{end}})
+	}
 	{{end}}
 
 	// {{.Type}} is an auto generated Go binding around an Ethereum contract.
