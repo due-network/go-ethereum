@@ -87,7 +87,7 @@ var (
 		  if err != nil {
 		    return types.EvmAddress{}, nil, nil, errors.Wrap(err, 0)
 		  }
-		  address, tx, contract, err := bind.DeployContract(auth, *parsed, bytecode, backend {{range .Constructor.Inputs}}, {{.Name}}{{end}})
+		  address, tx, contract, err := bind.DeployContract(auth, *parsed, bytecode, backend {{range .Constructor.Inputs}}, due_abi.ToABIForm({{.Name}}){{end}})
 		  if err != nil {
 		    return types.EvmAddress{}, nil, nil, errors.Wrap(err, 0)
 		  }
