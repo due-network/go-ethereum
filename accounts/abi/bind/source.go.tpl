@@ -5,10 +5,11 @@ package {{.Package}}
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/go-errors/errors"
 	"gitlab.com/due/common/types"
-	"gitlab.com/due/common/due_eth"
-	"gitlab.com/due/common/due_eth/due_abi"
+	"gitlab.com/due/relay_core/due_eth/due_abi"
+	"gitlab.com/due/relay_core/due_eth/eth_rpc"
 	"strings"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -21,8 +22,9 @@ import (
 // Reference imports to suppress errors if they are not otherwise used.
 var (
   _ = due_abi.ToABIForm
-  _ = due_eth.WatchEvent[any]
+  _ = eth_rpc.WatchEvent[any]
   _ = hex.DecodeString
+	_ = fmt.Sprintf
 	_ = errors.New
 	_ = strings.NewReader
 	_ = ethereum.NotFound
@@ -461,15 +463,15 @@ var (
 		// Filter{{.Normalized.Name}} is a free log retrieval operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
- 		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Filter{{.Normalized.Name}}(opts *bind.FilterOpts{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (*due_eth.EventIterator[{{$contract.Type}}{{.Normalized.Name}}], error) {
-			return due_eth.NewEventIterator[{{$contract.Type}}{{.Normalized.Name}}](_{{$contract.Type}}.contract, opts, "{{.Original.Name}}"{{range .Normalized.Inputs}}{{if .Indexed}}, due_abi.ToQuery({{.Name}}){{end}}{{end}})
+ 		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Filter{{.Normalized.Name}}(opts *bind.FilterOpts{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (*eth_rpc.EventIterator[{{$contract.Type}}{{.Normalized.Name}}], error) {
+			return eth_rpc.NewEventIterator[{{$contract.Type}}{{.Normalized.Name}}](_{{$contract.Type}}.contract, opts, "{{.Original.Name}}"{{range .Normalized.Inputs}}{{if .Indexed}}, due_abi.ToQuery({{.Name}}){{end}}{{end}})
  		}
 
 		// Watch{{.Normalized.Name}} is a free log subscription operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
 		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Watch{{.Normalized.Name}}(opts *bind.WatchOpts, sink chan<- *{{$contract.Type}}{{.Normalized.Name}}{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (event.Subscription, error) {
-			return due_eth.WatchEvent[{{$contract.Type}}{{.Normalized.Name}}](_{{$contract.Type}}.contract, opts, sink, "{{.Original.Name}}"{{range .Normalized.Inputs}}{{if .Indexed}}, due_abi.ToQuery({{.Name}}){{end}}{{end}})
+			return eth_rpc.WatchEvent[{{$contract.Type}}{{.Normalized.Name}}](_{{$contract.Type}}.contract, opts, sink, "{{.Original.Name}}"{{range .Normalized.Inputs}}{{if .Indexed}}, due_abi.ToQuery({{.Name}}){{end}}{{end}})
 		}
 
 		// Parse{{.Normalized.Name}} is a log parse operation binding the contract event 0x{{printf "%x" .Original.ID}}.
@@ -479,4 +481,40 @@ var (
 			return due_abi.UnpackLogContract[{{$contract.Type}}{{.Normalized.Name}}](_{{$contract.Type}}.contract, "{{.Original.Name}}", log)
 		}
  	{{end}}
+
+	{{range .Errors}}
+		type {{$contract.Type}}{{.Normalized.Name}}Error struct { {{range .Normalized.Inputs}}
+			{{capitalise .Name}} {{bindtype .Type $structs}}; {{end}}
+		}
+
+		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Error() string {
+			{{if .Normalized.Inputs -}}
+			return fmt.Sprintf("{{.Original.Name}}({{range $i, $_ := .Original.Inputs}}{{if ne $i 0}}, {{end}}{{.Type}} {{.Name}}=%v{{end}})"{{range .Normalized.Inputs}}, e.{{capitalise .Name}}{{end}})
+			{{- else -}}
+			return "{{.Original.Name}}()"
+			{{- end}}
+		}
+	{{end}}
+
+	{{if .Errors}}
+		func Parse{{.Type}}Error(data []byte) (error, error) {
+			parsed, err := {{.Type}}MetaData.GetAbi()
+			if err != nil {
+				return nil, errors.Wrap(err, 0)
+			}
+			if len(data) < 4 {
+				return nil, nil
+			}
+			errorAbi, err := parsed.ErrorByID([4]byte(data))
+			if err != nil {
+				return nil, nil
+			}
+			switch errorAbi.Name {
+			{{range .Errors}}case "{{.Original.Name}}":
+				return due_abi.UnpackError[{{$contract.Type}}{{.Normalized.Name}}Error](errorAbi, data)
+			{{end}}
+			}
+			return nil, nil
+		}
+	{{end}}
 {{end}}
