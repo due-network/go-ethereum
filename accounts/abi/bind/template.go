@@ -42,6 +42,7 @@ type tmplContract struct {
 	Fallback    *tmplMethod            // Additional special fallback function
 	Receive     *tmplMethod            // Additional special receive function
 	Events      map[string]*tmplEvent  // Contract events accessors
+	Errors      map[string]*tmplError  // Contract custom errors
 	Libraries   map[string]string      // Same as tmplData, but filtered to only keep what the contract needs
 	Library     bool                   // Indicator whether the contract is a library
 }
@@ -59,6 +60,11 @@ type tmplMethod struct {
 type tmplEvent struct {
 	Original   abi.Event // Original event as parsed by the abi package
 	Normalized abi.Event // Normalized version of the parsed fields
+}
+
+type tmplError struct {
+	Original   abi.Error
+	Normalized abi.Error
 }
 
 // tmplField is a wrapper around a struct field with binding language

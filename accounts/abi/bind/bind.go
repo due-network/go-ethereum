@@ -111,6 +111,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			calls     = make(map[string]*tmplMethod)
 			transacts = make(map[string]*tmplMethod)
 			events    = make(map[string]*tmplEvent)
+			errors    = make(map[string]*tmplError)
 			fallback  *tmplMethod
 			receive   *tmplMethod
 
@@ -121,6 +122,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			callIdentifiers     = make(map[string]bool)
 			transactIdentifiers = make(map[string]bool)
 			eventIdentifiers    = make(map[string]bool)
+			errorIdentifiers    = make(map[string]bool)
 		)
 
 		for _, input := range evmABI.Constructor.Inputs {
@@ -226,6 +228,43 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			// Append the event to the accumulator list
 			events[original.Name] = &tmplEvent{Original: original, Normalized: normalized}
 		}
+		for _, original := range evmABI.Errors {
+			normalized := original
+
+			normalizedName := methodNormalizer[lang](alias(aliases, original.Name))
+			if len(normalizedName) > 0 && unicode.IsDigit(rune(normalizedName[0])) {
+				normalizedName = fmt.Sprintf("E%s", normalizedName)
+				normalizedName = abi.ResolveNameConflict(normalizedName, func(name string) bool {
+					_, ok := errorIdentifiers[name]
+					return ok
+				})
+			}
+			if errorIdentifiers[normalizedName] {
+				return "", fmt.Errorf("duplicated identifier \"%s\"(normalized \"%s\"), use --alias for renaming", original.Name, normalizedName)
+			}
+			errorIdentifiers[normalizedName] = true
+			normalized.Name = normalizedName
+
+			used := make(map[string]bool)
+			normalized.Inputs = make([]abi.Argument, len(original.Inputs))
+			copy(normalized.Inputs, original.Inputs)
+			for j, input := range normalized.Inputs {
+				if input.Name == "" || isKeyWord(input.Name) {
+					normalized.Inputs[j].Name = fmt.Sprintf("arg%d", j)
+				}
+				for index := 0; ; index++ {
+					if !used[capitalise(normalized.Inputs[j].Name)] {
+						used[capitalise(normalized.Inputs[j].Name)] = true
+						break
+					}
+					normalized.Inputs[j].Name = fmt.Sprintf("%s%d", normalized.Inputs[j].Name, index)
+				}
+				if hasStruct(input.Type) {
+					bindStructType[lang](input.Type, structs)
+				}
+			}
+			errors[original.Name] = &tmplError{Original: original, Normalized: normalized}
+		}
 		// Add two special fallback functions if they exist
 		if evmABI.HasFallback() {
 			fallback = &tmplMethod{Original: evmABI.Fallback}
@@ -243,6 +282,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			Fallback:    fallback,
 			Receive:     receive,
 			Events:      events,
+			Errors:      errors,
 			Libraries:   make(map[string]string),
 		}
 		// Function 4-byte signatures are stored in the same sequence
