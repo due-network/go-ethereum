@@ -499,6 +499,17 @@ var (
 			return [4]byte{ {{- range $i, $b := .Original.ID}}{{if lt $i 4}}{{if $i}}, {{end}}0x{{printf "%02x" $b}}{{end}}{{end -}} }
 		}
 
+		// Signature returns the canonical ABI signature; Fingerprint is the first 4 bytes of its keccak256.
+		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Signature() string {
+			return "{{.Original.Sig}}"
+		}
+
+		// Is matches any contract error with the same selector, regardless of its arguments.
+		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Is(target error) bool {
+			t, ok := target.(interface{ Fingerprint() [4]byte })
+			return ok && t.Fingerprint() == e.Fingerprint()
+		}
+
 		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Unpack(data []byte) error {
 			parsed, err := {{$contract.Type}}MetaData.GetAbi()
 			if err != nil {
