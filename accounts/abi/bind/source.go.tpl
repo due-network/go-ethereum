@@ -495,8 +495,8 @@ var (
 			{{- end}}
 		}
 
-		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Fingerprint() string {
-			return "{{slice (printf "%x" .Original.ID) 0 8}}"
+		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Fingerprint() [4]byte {
+			return [4]byte{ {{- range $i, $b := .Original.ID}}{{if lt $i 4}}{{if $i}}, {{end}}0x{{printf "%02x" $b}}{{end}}{{end -}} }
 		}
 
 		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Unpack(data []byte) error {
