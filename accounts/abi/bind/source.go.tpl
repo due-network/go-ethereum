@@ -494,27 +494,17 @@ var (
 			return "{{.Original.Name}}()"
 			{{- end}}
 		}
-	{{end}}
 
-	{{if .Errors}}
-		func Parse{{.Type}}Error(data []byte) (error, error) {
-			parsed, err := {{.Type}}MetaData.GetAbi()
+		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Fingerprint() [4]byte {
+			return [4]byte{ {{- range $i, $b := .Original.ID}}{{if lt $i 4}}{{if $i}}, {{end}}0x{{printf "%02x" $b}}{{end}}{{end -}} }
+		}
+
+		func (e *{{$contract.Type}}{{.Normalized.Name}}Error) Unpack(data []byte) error {
+			parsed, err := {{$contract.Type}}MetaData.GetAbi()
 			if err != nil {
-				return nil, errors.Wrap(err, 0)
+				return errors.Wrap(err, 0)
 			}
-			if len(data) < 4 {
-				return nil, nil
-			}
-			errorAbi, err := parsed.ErrorByID([4]byte(data))
-			if err != nil {
-				return nil, nil
-			}
-			switch errorAbi.Name {
-			{{range .Errors}}case "{{.Original.Name}}":
-				return due_abi.UnpackError[{{$contract.Type}}{{.Normalized.Name}}Error](errorAbi, data)
-			{{end}}
-			}
-			return nil, nil
+			return due_abi.UnpackError(parsed.Errors["{{.Original.Name}}"], data, e)
 		}
 	{{end}}
 {{end}}
